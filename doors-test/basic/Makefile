@@ -1,6 +1,7 @@
 CC = clang
 CCFLAGS = -Wall -Wextra -fPIC -g
-INCLUDEDIR = ../../../src-bak/include  -I../../../src-bak/sys
+BSD_SRC = ../freebsd-src
+INCLUDE = -I${BSD_SRC}/include  -I{BSD_SRC}/sys
 LDFLAGS = -L ../../libdoor -ldoor
 CLIENT = client
 SERVER = server 
@@ -23,4 +24,4 @@ ${CLIENT}: ${CLIENT_OBJECTS}
 
 
 .c.o:
-	${CC} -I${INCLUDEDIR} ${CCFLAGS} -c ${.IMPSRC} -o ${.TARGET}
+	${CC} ${INCLUDE} ${CCFLAGS} -c ${.IMPSRC} -o ${.TARGET}
