@@ -1,3 +1,26 @@
+diff --git a/sys/amd64/amd64/door_machdep.c b/sys/amd64/amd64/door_machdep.c
+new file mode 100644
+index 000000000000..d0e89a3a77dc
+--- /dev/null
++++ b/sys/amd64/amd64/door_machdep.c
+@@ -0,0 +1,17 @@
++#include <sys/door_extern.h>
++#include <sys/proc.h>
++#include <sys/param.h>
++
++#include <machine/cpu.h>
++#include <machine/md_var.h>
++
++
++void door_set_args(struct thread *td, void *cookiep, char *argp, size_t arg_size, struct door_desc *dp, u_int n_desc){
++  td->td_retval[0] = (register_t)cookiep;
++  td->td_frame->tf_rsi = (register_t)argp;
++  /* The second arg should go in rdx, but it gets overwritten by td->retval[1] in cpu_set_syscall_retval */
++  td->td_retval[1] = arg_size;
++  td->td_frame->tf_rcx = (register_t)dp;
++  td->td_frame->tf_r8 = (register_t)n_desc;
++}
++
 diff --git a/include/door.h b/include/door.h
 new file mode 100644
 index 000000000000..d095926820b6
