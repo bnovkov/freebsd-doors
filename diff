@@ -6553,7 +6553,7 @@ new file mode 100644
 index 000000000000..e8f023b8114e
 --- /dev/null
 +++ b/sys/fs/doorfs/doorfs_vnops.c
-@@ -0,0 +1,213 @@
+@@ -0,0 +1,191 @@
 +#include <sys/types.h>
 +#include <sys/systm.h>
 +#include <sys/door.h>
@@ -6664,16 +6664,10 @@ index 000000000000..e8f023b8114e
 +
 +		DOOR_UNLOCK(d);
 +
-+		VI_LOCK(vp);
-+		vunref(vp);
-+		VI_UNLOCK(vp);
 +
 +		cv_destroy(&d->unref_cv);
 +		cv_destroy(&d->close_cv);
 +
-+//		if (d->attached_vnode_info && ) {
-+//			free(d->attached_vnode_info, M_TEMP);
-+//		}
 +		free(tmp, M_TEMP);
 +		free(d, M_DOOR);
 +	} else {
@@ -6716,22 +6710,6 @@ index 000000000000..e8f023b8114e
 +	struct vnode *vp = ap->a_vp;
 +	KASSERT(
 +	    vp->v_type == VDOOR, ("door_reclaim invoked on non-door vnode"));
-+
-+	if (vp->v_door_vnode_info == NULL) {
-+		return 0;
-+	}
-+
-+	struct door *d = vp->v_door_vnode_info->v_door;
-+
-+	/* This path will be taken only if the system was shut down with
-+	 * attached doors */
-+	if (d->door_vnode != vp) {
-+		/* Forward access to underlying fs */
-+		struct vop_vector *prev_vnops =
-+		    ap->a_vp->v_door_vnode_info->v_prev_vnops;
-+
-+		return prev_vnops->vop_reclaim(ap);
-+	}
 +
 +	return 0;
 +}
@@ -16340,7 +16318,7 @@ new file mode 100644
 index 000000000000..8b2b67378d9b
 --- /dev/null
 +++ b/sys/kern/kern_door.c
-@@ -0,0 +1,2038 @@
+@@ -0,0 +1,2034 @@
 +#include <sys/types.h>
 +#include <sys/param.h>
 +#include <sys/buf.h>
@@ -16394,21 +16372,23 @@ index 000000000000..8b2b67378d9b
 +		return error;
 +	}
 +
-+	fdrop(fp, td);
++	if (fp->f_type == DTYPE_VNODE) {
 +
-+	struct vnode *vp = fp->f_vnode;
-+	if (vp && vp->v_type == VDOOR) {
-+		KASSERT(
-+		    vp->v_door_vnode_info->v_door != NULL, ("Door not set"));
-+		*d = vp->v_door_vnode_info->v_door;
-+
++		struct vnode *vp = fp->f_vnode;
++		if (vp && vp->v_type == VDOOR) {
++			KASSERT(
++		    	vp->v_door_vnode_info->v_door != NULL, ("Door not set"));
++			*d = vp->v_door_vnode_info->v_door;
++		}
 +	} else if (fp->f_type == DTYPE_DOOR) { /* The server process passed its
 +						* internal door descriptor */
 +		*d = (struct door *)fp->f_data;
 +	} else {
++		fdrop(fp, td);
 +		return (EBADF);
 +	}
 +
++	fdrop(fp, td);
 +	return 0;
 +}
 +
@@ -16423,9 +16403,7 @@ index 000000000000..8b2b67378d9b
 +			return NULL;
 +		}
 +
-+		thread_lock(td);
 +		td->td_door = info;
-+		thread_unlock(td);
 +
 +		cv_init(&td->td_door->server.hold_cv, "door_server_cv");
 +		cv_init(&td->td_door->client.hold_cv, "door_client_cv");
@@ -16631,10 +16609,6 @@ index 000000000000..8b2b67378d9b
 +	cv_init(&new_door->close_cv, "door_close_cv");
 +
 +	getnewvnode("doorfs", NULL, &door_vnops, &new_door->door_vnode);
-+
-+	VI_LOCK(new_door->door_vnode);
-+	vref(new_door->door_vnode);
-+	VI_UNLOCK(new_door->door_vnode);
 +
 +	new_door->attached_vnode_info = (struct door_vnode_info *)malloc(
 +	    sizeof(struct door_vnode_info), M_TEMP, M_WAITOK);
