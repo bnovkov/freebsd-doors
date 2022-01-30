@@ -21,8 +21,8 @@ $ git apply diff
 OR
 $ patch < diff
 
-$ make -jN buildkernel KERNCONF=DOORS-DEV
-$ make installkernel KERNCONF=DOORS-DEV
+$ make -jN buildkernel
+$ make installkernel
 
 ```
 
